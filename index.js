@@ -136,7 +136,7 @@ class Manager {
         await this.checkService();
         ok = true;
         break;
-      } catch (_) { }
+      } catch (_) {}
     }
     if (!ok) {
       throw new Error("socket failed");
@@ -144,32 +144,30 @@ class Manager {
   }
   async installWindows() {
     const quotedPath = `"${this.serviceFile}"`;
-    const shells = [
-      `${quotedPath} install`,
-      `${quotedPath} start`,
-    ]
+    const shells = [`${quotedPath} install`, `${quotedPath} start`];
     for (const shell of shells) {
-      const script = `Start-Process "cmd.exe" -ArgumentList '/c ${shell}' -Verb RunAs -WindowStyle Hidden`
+      const script = `Start-Process "cmd.exe" -ArgumentList '/c ${shell}' -Verb RunAs -WindowStyle Hidden`;
       try {
-        execSync(`powershell -Command ${script}`, { encoding: "utf8" })
+        execSync(`powershell -Command ${script}`, { encoding: "utf8" });
       } catch (err) {
-        throw new Error(`failed to install: ${err?.message}\n${err?.stdout || ""}`)
+        throw new Error(
+          `failed to install: ${err?.message}\n${err?.stdout || ""}`
+        );
       }
     }
-    await this.installAfterCheck()
+    await this.installAfterCheck();
   }
   async uninstallWindows() {
     const quotedPath = `"${this.serviceFile}"`;
-    const shells = [
-      `${quotedPath} stop`,
-      `${quotedPath} uninstall`,
-    ]
+    const shells = [`${quotedPath} stop`, `${quotedPath} uninstall`];
     for (const shell of shells) {
-      const script = `Start-Process "cmd.exe" -ArgumentList '/c ${shell}' -Verb RunAs -WindowStyle Hidden`
+      const script = `Start-Process "cmd.exe" -ArgumentList '/c ${shell}' -Verb RunAs -WindowStyle Hidden`;
       try {
-        execSync(`powershell -Command ${script}`, { encoding: "utf8" })
+        execSync(`powershell -Command ${script}`, { encoding: "utf8" });
       } catch (err) {
-        throw new Error(`failed to install: ${err?.message}\n${err?.stdout || ""}`)
+        throw new Error(
+          `failed to install: ${err?.message}\n${err?.stdout || ""}`
+        );
       }
     }
   }
@@ -183,14 +181,17 @@ class Manager {
     const script = `do shell script "${shells.replace(
       /"/g,
       '\\"'
-    )}" with prompt "Kernel ${this.serviceName
-      } requires authorization to use" with administrator privileges`;
+    )}" with prompt "Kernel ${
+      this.serviceName
+    } requires authorization to use" with administrator privileges`;
     try {
       execSync(`osascript -e '${script}'`, { encoding: "utf8" });
     } catch (err) {
-      throw new Error(`failed to install: ${err?.message}\n${err?.stdout || ""}`);
+      throw new Error(
+        `failed to install: ${err?.message}\n${err?.stdout || ""}`
+      );
     }
-    await this.installAfterCheck()
+    await this.installAfterCheck();
   }
   async uninstallDarwin() {
     const quotedPath = `"${this.serviceFile}"`;
@@ -198,16 +199,19 @@ class Manager {
     const script = `do shell script "${shells.replace(
       /"/g,
       '\\"'
-    )}" with prompt "Kernel ${this.serviceName
-      } requires authorization to use" with administrator privileges`;
+    )}" with prompt "Kernel ${
+      this.serviceName
+    } requires authorization to use" with administrator privileges`;
     try {
       execSync(`osascript -e '${script}'`, { encoding: "utf8" });
     } catch (err) {
-      throw new Error(`failed to uninstall: ${err?.message}\n${err?.stdout || ""}`);
+      throw new Error(
+        `failed to uninstall: ${err?.message}\n${err?.stdout || ""}`
+      );
     }
   }
-  async installLinux() { }
-  async uninstallLinux() { }
+  async installLinux() {}
+  async uninstallLinux() {}
 }
 
 module.exports = { Manager };
