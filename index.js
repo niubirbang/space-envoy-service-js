@@ -24,9 +24,7 @@ class Manager {
 
   async Init() {
     if (this.inited) return;
-    try {
-      await this.checkService();
-    } catch (_) {
+    if (!(await this.isRunning())) {
       await this.install();
     }
     this.inited = true;
@@ -96,11 +94,15 @@ class Manager {
       throw new Error("uninit");
     }
   }
-  async checkService() {
-    await this.client.request({
-      method: "GET",
-      url: "/version",
-    });
+  async isRunning() {
+    switch (process.platform) {
+      case "win32":
+        return await this.isRunningWindows();
+      case "darwin":
+        return await this.isRunningDarwin();
+      case "linux":
+        return await this.isRunningLinux();
+    }
   }
   async install() {
     switch (process.platform) {
@@ -132,14 +134,23 @@ class Manager {
     let ok = false;
     for (let i = 0; i < 60; i++) {
       await new Promise((r) => setTimeout(r, 500));
-      try {
-        await this.checkService();
+      if (await this.isRunning()) {
         ok = true;
         break;
-      } catch (_) {}
+      }
     }
     if (!ok) {
       throw new Error("socket failed");
+    }
+  }
+  async isRunningWindows() {
+    try {
+      const output = execSync(`sc query ${this.serviceName}`, {
+        encoding: "utf8",
+      });
+      return output.toLowerCase().includes("running");
+    } catch {
+      return false;
     }
   }
   async installWindows() {
@@ -169,6 +180,17 @@ class Manager {
           `failed to install: ${err?.message}\n${err?.stdout || ""}`
         );
       }
+    }
+  }
+  async isRunningDarwin() {
+    try {
+      const output = execSync(`launchctl print system/${this.serviceName}`, {
+        encoding: "utf8",
+      });
+      const match = output.match(/pid = (\d+)/);
+      return match && match[1] !== "0";
+    } catch {
+      return false;
     }
   }
   async installDarwin() {
@@ -209,6 +231,9 @@ class Manager {
         `failed to uninstall: ${err?.message}\n${err?.stdout || ""}`
       );
     }
+  }
+  async isRunningLinux() {
+    return false;
   }
   async installLinux() {}
   async uninstallLinux() {}
