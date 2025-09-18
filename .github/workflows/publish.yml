@@ -40,3 +40,4 @@ jobs:
           name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
+          body_path: ./README.md
