@@ -1,4 +1,5 @@
 const path = require("path");
+const fs = require("fs");
 const axios = require("axios");
 const { execSync } = require("child_process");
 
@@ -234,7 +235,7 @@ class Manager {
     const shells = [
       `chmod +x ${quotedPath}`,
       `${quotedPath} install`,
-      `${quotedPath} start`,
+      // `${quotedPath} start`,
     ].join("\n");
     const script = `do shell script "${shells.replace(
       /"/g,
@@ -269,7 +270,9 @@ class Manager {
       );
     }
   }
-  async logDarwin() {}
+  async logDarwin() {
+    return fs.readFileSync(`/var/log/${this.serviceName}.out.log`).toString('utf-8')
+  }
   async isRunningLinux() {
     return false;
   }
