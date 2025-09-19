@@ -8,10 +8,10 @@ npm install @niubir/space-envoy-service
 const { Manager } = require("@niubir/space-envoy-service")
 const m = new Manager(serviceName, serviceFile);
 await m.Init();
-await m.Start(
+await m.Up(
   "[config_dir]",
   "[config_file]",
 );
-await m.Stop();
+await m.Down();
 await m.Uninstall();
 ```
