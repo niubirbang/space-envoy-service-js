@@ -73,6 +73,19 @@ class Manager {
       url: "/down",
     });
   }
+  async Ping(target, port, timeout) {
+    await this.checkInited();
+    const data = await this.client.request({
+      method: "POST",
+      url: "/ping",
+      data: {
+        target: target,
+        port: port,
+        timeout: timeout,
+      },
+    });
+    return data.data;
+  }
   async Log() {
     switch (process.platform) {
       case "win32":
@@ -173,10 +186,10 @@ class Manager {
     }
   }
   async installWindows() {
-    console.log("installing")
+    console.log("installing");
     const quotedPath = `"${this.serviceFile}"`;
     const shells = [
-      `${quotedPath} install`, 
+      `${quotedPath} install`,
       // `${quotedPath} start`,
     ];
     for (const shell of shells) {
@@ -192,7 +205,7 @@ class Manager {
     await this.installAfterCheck();
   }
   async uninstallWindows() {
-    console.log("uninstalling")
+    console.log("uninstalling");
     const quotedPath = `"${this.serviceFile}"`;
     const shells = [
       // `${quotedPath} stop`,
@@ -211,9 +224,12 @@ class Manager {
   }
   async logWindows() {
     try {
-      return execSync(`powershell -Command Get-EventLog -LogName Application -Source ${this.serviceName} -Newest 1000`, {
-        encoding: "utf8",
-      });
+      return execSync(
+        `powershell -Command Get-EventLog -LogName Application -Source ${this.serviceName} -Newest 1000`,
+        {
+          encoding: "utf8",
+        }
+      );
     } catch {
       return false;
     }
@@ -230,7 +246,7 @@ class Manager {
     }
   }
   async installDarwin() {
-    console.log("installing")
+    console.log("installing");
     const quotedPath = `"${this.serviceFile}"`;
     const shells = [
       `chmod +x ${quotedPath}`,
@@ -253,7 +269,7 @@ class Manager {
     await this.installAfterCheck();
   }
   async uninstallDarwin() {
-    console.log("uninstalling")
+    console.log("uninstalling");
     const quotedPath = `"${this.serviceFile}"`;
     const shells = [`${quotedPath} uninstall`].join("\n");
     const script = `do shell script "${shells.replace(
@@ -271,7 +287,9 @@ class Manager {
     }
   }
   async logDarwin() {
-    return fs.readFileSync(`/var/log/${this.serviceName}.out.log`).toString('utf-8')
+    return fs
+      .readFileSync(`/var/log/${this.serviceName}.out.log`)
+      .toString("utf-8");
   }
   async isRunningLinux() {
     return false;
