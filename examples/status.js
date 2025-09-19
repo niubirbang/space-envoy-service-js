@@ -5,7 +5,7 @@ const m = new Manager(serviceName, serviceFile);
 
 async function test() {
   await m.Init();
-  await m.Stop();
+  console.log(await m.Status());
 }
 
 test();

@@ -40,7 +40,15 @@ class Manager {
     });
     return data.data;
   }
-  async Start(homeDir, configFile) {
+  async Status() {
+    await this.checkInited();
+    const data = await this.client.request({
+      method: "GET",
+      url: "/status",
+    });
+    return data.data;
+  }
+  async Up(homeDir, configFile) {
     await this.checkInited();
     if (!path.isAbsolute(homeDir)) {
       homeDir = path.join(currentDir, homeDir);
@@ -50,19 +58,29 @@ class Manager {
     }
     await this.client.request({
       method: "POST",
-      url: "/start",
+      url: "/up",
       data: {
         homeDir,
         configFile,
       },
     });
   }
-  async Stop() {
+  async Down() {
     await this.checkInited();
     await this.client.request({
       method: "POST",
-      url: "/stop",
+      url: "/down",
     });
+  }
+  async Log() {
+    switch (process.platform) {
+      case "win32":
+        return await this.logWindows();
+      case "darwin":
+        return await this.logDarwin();
+      case "linux":
+        return await this.logLinux();
+    }
   }
   initClient() {
     switch (process.platform) {
@@ -154,8 +172,12 @@ class Manager {
     }
   }
   async installWindows() {
+    console.log("installing")
     const quotedPath = `"${this.serviceFile}"`;
-    const shells = [`${quotedPath} install`, `${quotedPath} start`];
+    const shells = [
+      `${quotedPath} install`, 
+      // `${quotedPath} start`,
+    ];
     for (const shell of shells) {
       const script = `Start-Process "cmd.exe" -ArgumentList '/c ${shell}' -Verb RunAs -WindowStyle Hidden`;
       try {
@@ -169,8 +191,12 @@ class Manager {
     await this.installAfterCheck();
   }
   async uninstallWindows() {
+    console.log("uninstalling")
     const quotedPath = `"${this.serviceFile}"`;
-    const shells = [`${quotedPath} stop`, `${quotedPath} uninstall`];
+    const shells = [
+      // `${quotedPath} stop`,
+      `${quotedPath} uninstall`,
+    ];
     for (const shell of shells) {
       const script = `Start-Process "cmd.exe" -ArgumentList '/c ${shell}' -Verb RunAs -WindowStyle Hidden`;
       try {
@@ -180,6 +206,15 @@ class Manager {
           `failed to install: ${err?.message}\n${err?.stdout || ""}`
         );
       }
+    }
+  }
+  async logWindows() {
+    try {
+      return execSync(`powershell -Command Get-EventLog -LogName Application -Source ${this.serviceName} -Newest 1000`, {
+        encoding: "utf8",
+      });
+    } catch {
+      return false;
     }
   }
   async isRunningDarwin() {
@@ -194,6 +229,7 @@ class Manager {
     }
   }
   async installDarwin() {
+    console.log("installing")
     const quotedPath = `"${this.serviceFile}"`;
     const shells = [
       `chmod +x ${quotedPath}`,
@@ -216,6 +252,7 @@ class Manager {
     await this.installAfterCheck();
   }
   async uninstallDarwin() {
+    console.log("uninstalling")
     const quotedPath = `"${this.serviceFile}"`;
     const shells = [`${quotedPath} uninstall`].join("\n");
     const script = `do shell script "${shells.replace(
@@ -232,11 +269,13 @@ class Manager {
       );
     }
   }
+  async logDarwin() {}
   async isRunningLinux() {
     return false;
   }
   async installLinux() {}
   async uninstallLinux() {}
+  async logLinux() {}
 }
 
 module.exports = { Manager };
