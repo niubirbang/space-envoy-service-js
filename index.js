@@ -49,6 +49,14 @@ class Manager {
     });
     return data.data;
   }
+  async Config(mode, param) {
+    await this.checkInited();
+    await this.client.request({
+      method: "POST",
+      url: `/config/${mode}`,
+      data: param,
+    });
+  }
   async Up(homeDir, configFile) {
     await this.checkInited();
     if (!path.isAbsolute(homeDir)) {
