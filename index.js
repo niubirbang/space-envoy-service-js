@@ -23,16 +23,11 @@ class Manager {
     this.initClient();
   }
 
-  async Init(dir, logLevel, mixedPort, controllerPort, dnsPort) {
+  async Init() {
     if (this.inited) return;
     if (!(await this.isRunning())) {
       await this.install();
     }
-    await this.client.request({
-      method: "POST",
-      url: "/init",
-      data: { dir, logLevel, mixedPort, controllerPort, dnsPort },
-    });
     this.inited = true;
   }
   async Uninstall() {
