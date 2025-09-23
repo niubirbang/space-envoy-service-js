@@ -1,10 +1,18 @@
 const { Manager } = require("../index");
-const { serviceName, serviceFile } = require("./args");
+const {
+  serviceName,
+  serviceFile,
+  dir,
+  logLevel,
+  mixedPort,
+  controllerPort,
+  dnsPort,
+} = require("./var");
 
 const m = new Manager(serviceName, serviceFile);
 
 async function test() {
-  await m.Init();
+  await m.Init(dir, logLevel, mixedPort, controllerPort, dnsPort);
   console.log(await m.Status());
 }
 

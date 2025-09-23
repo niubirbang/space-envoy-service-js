@@ -23,11 +23,16 @@ class Manager {
     this.initClient();
   }
 
-  async Init() {
+  async Init(dir, logLevel, mixedPort, controllerPort, dnsPort) {
     if (this.inited) return;
     if (!(await this.isRunning())) {
       await this.install();
     }
+    await this.client.request({
+      method: "POST",
+      url: "/init",
+      data: { dir, logLevel, mixedPort, controllerPort, dnsPort },
+    });
     this.inited = true;
   }
   async Uninstall() {
@@ -49,6 +54,14 @@ class Manager {
     });
     return data.data;
   }
+  async Args() {
+    await this.checkInited();
+    const data = await this.client.request({
+      method: "GET",
+      url: "/args",
+    });
+    return data.data;
+  }
   async Config(mode, param) {
     await this.checkInited();
     await this.client.request({
@@ -57,21 +70,11 @@ class Manager {
       data: param,
     });
   }
-  async Up(homeDir, configFile) {
+  async Up() {
     await this.checkInited();
-    if (!path.isAbsolute(homeDir)) {
-      homeDir = path.join(currentDir, homeDir);
-    }
-    if (!path.isAbsolute(configFile)) {
-      configFile = path.join(currentDir, configFile);
-    }
     await this.client.request({
       method: "POST",
       url: "/up",
-      data: {
-        homeDir,
-        configFile,
-      },
     });
   }
   async Down() {

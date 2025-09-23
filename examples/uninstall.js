@@ -1,5 +1,5 @@
 const { Manager } = require("../index");
-const { serviceName, serviceFile } = require("./args");
+const { serviceName, serviceFile } = require("./var");
 
 const m = new Manager(serviceName, serviceFile);
 
