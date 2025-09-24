@@ -243,16 +243,10 @@ class Manager {
     }
   }
   async logWindows() {
-    try {
-      return execSync(
-        `powershell -Command Get-EventLog -LogName Application -Source ${this.serviceName} -Newest 1000`,
-        {
-          encoding: "utf8",
-        }
-      );
-    } catch {
-      return false;
-    }
+    return execSync(
+      `powershell -Command Get-EventLog -LogName Application -Source ${this.serviceName} -Newest 1000`,
+      { encoding: "utf8" }
+    );
   }
   async isRunningDarwin() {
     try {
@@ -312,11 +306,53 @@ class Manager {
       .toString("utf-8");
   }
   async isRunningLinux() {
-    return false;
+    try {
+      const output = execSync(`systemctl is-active ${this.serviceName}`, {
+        encoding: "utf8",
+      }).trim();
+      return output === "active";
+    } catch {
+      return false;
+    }
   }
-  async installLinux() {}
-  async uninstallLinux() {}
-  async logLinux() {}
+  async installLinux() {
+    console.log("installing");
+    const quotedPath = `"${this.serviceFile}"`;
+    const shells = [
+      `chmod +x ${quotedPath}`,
+      `${quotedPath} install`,
+      `${quotedPath} start`,
+    ];
+    for (const shell of shells) {
+      try {
+        execSync(`pkexec ${shell}`, { stdio: "inherit", encoding: "utf8" });
+      } catch (err) {
+        throw new Error(
+          `failed to install: ${err?.message}\n${err?.stdout || ""}`
+        );
+      }
+    }
+    await this.installAfterCheck();
+  }
+  async uninstallLinux() {
+    console.log("uninstalling");
+    const quotedPath = `"${this.serviceFile}"`;
+    const shells = [`${quotedPath} uninstall`].join("\n");
+    for (const shell of shells) {
+      try {
+        execSync(`pkexec ${shell}`, { stdio: "inherit", encoding: "utf8" });
+      } catch (err) {
+        throw new Error(
+          `failed to uninstall: ${err?.message}\n${err?.stdout || ""}`
+        );
+      }
+    }
+  }
+  async logLinux() {
+    return execSync(`journalctl -u ${this.serviceName} -n 1000`, {
+      encoding: "utf8",
+    });
+  }
 }
 
 module.exports = { Manager };
