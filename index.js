@@ -79,7 +79,21 @@ class Manager {
       url: "/down",
     });
   }
+  async Parse(uri) {
+    await this.checkInited();
+    const data = await this.client.request({
+      method: "POST",
+      url: "/parse",
+      data: {
+        uri,
+      },
+    });
+    return data.data;
+  }
   async Ping(target, port, timeout) {
+    if (!timeout) {
+      timeout = 2000;
+    }
     await this.checkInited();
     const data = await this.client.request({
       method: "POST",
