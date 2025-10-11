@@ -5,6 +5,18 @@ const { execSync } = require("child_process");
 
 const currentDir = process.cwd();
 
+const ModeGlobal = "global";
+const ModeAbroad = "abroad";
+const ModeReturning = "returning";
+
+const UseFixed = "fixed";
+const UseAuto = "auto";
+
+const LogLevelDebug = "debug";
+const LogLevelInfo = "info";
+const LogLevelWarning = "warning";
+const LogLevelError = "error";
+
 class Manager {
   constructor(serviceName, serviceFile) {
     if (!serviceName) {
@@ -41,49 +53,19 @@ class Manager {
     });
     return data.data;
   }
-  async Status() {
+  async Option() {
     await this.checkInited();
     const data = await this.client.request({
       method: "GET",
-      url: "/status",
+      url: "/option",
     });
     return data.data;
   }
-  async Args() {
-    await this.checkInited();
-    const data = await this.client.request({
-      method: "GET",
-      url: "/args",
-    });
-    return data.data;
-  }
-  async Config(mode, param) {
-    await this.checkInited();
-    await this.client.request({
-      method: "POST",
-      url: `/config/${mode}`,
-      data: param,
-    });
-  }
-  async Up() {
-    await this.checkInited();
-    await this.client.request({
-      method: "POST",
-      url: "/up",
-    });
-  }
-  async Down() {
-    await this.checkInited();
-    await this.client.request({
-      method: "POST",
-      url: "/down",
-    });
-  }
-  async Parse(uri) {
+  async ParseURI(uri) {
     await this.checkInited();
     const data = await this.client.request({
       method: "POST",
-      url: "/parse",
+      url: "/parseuri",
       data: {
         uri,
       },
@@ -106,6 +88,37 @@ class Manager {
     });
     return data.data;
   }
+  async Status() {
+    await this.checkInited();
+    const data = await this.client.request({
+      method: "GET",
+      url: "/status",
+    });
+    return data.data;
+  }
+  async SetOption(opt) {
+    await this.checkInited();
+    await this.client.request({
+      method: "POST",
+      url: "/option",
+      data: opt,
+    });
+  }
+  async Enable(param) {
+    await this.checkInited();
+    await this.client.request({
+      method: "POST",
+      url: "/enable",
+      data: param,
+    });
+  }
+  async Disable() {
+    await this.checkInited();
+    await this.client.request({
+      method: "POST",
+      url: "/disable",
+    });
+  }
   async Log() {
     switch (process.platform) {
       case "win32":
@@ -116,6 +129,7 @@ class Manager {
         return await this.logLinux();
     }
   }
+
   initClient() {
     switch (process.platform) {
       case "win32":
@@ -353,6 +367,21 @@ class Manager {
       encoding: "utf8",
     });
   }
+
+  mockInited() {
+    this.inited = true;
+  }
 }
 
-module.exports = { Manager };
+module.exports = {
+  Manager,
+  ModeGlobal,
+  ModeAbroad,
+  ModeReturning,
+  UseFixed,
+  UseAuto,
+  LogLevelDebug,
+  LogLevelInfo,
+  LogLevelWarning,
+  LogLevelError,
+};
