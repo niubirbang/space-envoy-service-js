@@ -1,6 +1,8 @@
 let serviceName = "";
 let serviceFile = "";
 
+const mockInited = false;
+
 switch (process.platform) {
   case "win32":
     serviceName = "space_envoy";
@@ -19,4 +21,5 @@ switch (process.platform) {
 module.exports = {
   serviceName,
   serviceFile,
+  mockInited,
 };

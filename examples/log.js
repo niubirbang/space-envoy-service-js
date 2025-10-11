@@ -1,8 +1,10 @@
 const { Manager } = require("../index");
-const { serviceName, serviceFile } = require("./var");
+const { serviceName, serviceFile, mockInited } = require("./var");
 
 const m = new Manager(serviceName, serviceFile);
-m.mockInited();
+if (mockInited) {
+  m.mockInited();
+}
 
 async function test() {
   await m.Init();
