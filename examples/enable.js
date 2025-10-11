@@ -6,12 +6,12 @@ if (mockInited) {
   m.mockInited();
 }
 
-const mode = ModeGlobal;
-// const mode = ModeAbroad;
+// const mode = ModeGlobal;
+const mode = ModeAbroad;
 // const mode = ModeReturning;
 
-// const use = UseFixed;
-const use = UseAuto;
+const use = UseFixed;
+// const use = UseAuto;
 
 async function test() {
   await m.Init();
