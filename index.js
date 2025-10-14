@@ -56,6 +56,9 @@ class Manager {
     }
     this.inited = true;
   }
+  async Install() {
+    await this.install();
+  }
   async Uninstall() {
     await this.uninstall();
   }
@@ -67,16 +70,14 @@ class Manager {
     });
     return data.data;
   }
-  async CheckVersion(latest) {
+  async IsLatestVersion(latest) {
     await this.checkInited();
     const data = await this.client.request({
       method: "GET",
       url: "/version",
     });
     const current = data.data;
-    if (isNewerVersion(current, latest)) {
-      await this.install();
-    }
+    return !isNewerVersion(current, latest);
   }
   async Option() {
     await this.checkInited();
