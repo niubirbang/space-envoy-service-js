@@ -17,6 +17,20 @@ const LogLevelInfo = "info";
 const LogLevelWarning = "warning";
 const LogLevelError = "error";
 
+const isNewerVersion = (current, latest) => {
+  const curr = current.split(".").map(Number);
+  const last = latest.split(".").map(Number);
+  const len = Math.max(curr.length, last.length);
+
+  for (let i = 0; i < len; i++) {
+    const a = curr[i] || 0;
+    const b = last[i] || 0;
+    if (a < b) return true;
+    if (a > b) return false;
+  }
+  return false;
+};
+
 class Manager {
   constructor(serviceName, serviceFile) {
     if (!serviceName) {
@@ -52,6 +66,17 @@ class Manager {
       url: "/version",
     });
     return data.data;
+  }
+  async CheckVersion(latest) {
+    await this.checkInited();
+    const data = await this.client.request({
+      method: "GET",
+      url: "/version",
+    });
+    const current = data.data;
+    if (isNewerVersion(current, latest)) {
+      await this.install();
+    }
   }
   async Option() {
     await this.checkInited();
