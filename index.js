@@ -1,6 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const axios = require("axios");
+const AdmZip = require("adm-zip");
 const { execSync } = require("child_process");
 
 const currentDir = process.cwd();
@@ -17,78 +18,80 @@ const LogLevelInfo = "info";
 const LogLevelWarning = "warning";
 const LogLevelError = "error";
 
-const isNewerVersion = (current, latest) => {
-  const curr = current.split(".").map(Number);
-  const last = latest.split(".").map(Number);
-  const len = Math.max(curr.length, last.length);
+const serverFileName = {
+  win32: "service.exe",
+  darwin: "service",
+  linux: "service",
+}[process.platform];
 
-  for (let i = 0; i < len; i++) {
-    const a = curr[i] || 0;
-    const b = last[i] || 0;
-    if (a < b) return true;
-    if (a > b) return false;
-  }
-  return false;
-};
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
-class Manager {
-  constructor(serviceName, serviceFile) {
-    if (!serviceName) {
-      serviceName = "space_envoy";
+class Service {
+  constructor({ serverName = "space_envoy", serverDir }) {
+    if (!path.isAbsolute(serverDir)) {
+      serverDir = path.join(currentDir, serverDir);
     }
-    if (!serviceFile) {
-      serviceFile = "space_envoy";
-    }
-    if (!path.isAbsolute(serviceFile)) {
-      serviceFile = path.join(currentDir, serviceFile);
-    }
+    this.ServerDir = serverDir;
+    console.log("[space-envoy] server dir:", serverDir);
 
-    this.serviceName = serviceName;
-    this.serviceFile = serviceFile;
-    this.inited = false;
+    this.ServerName = serverName;
+
+    this.ServerInstaller = path.join(serverDir, "service.zip");
+    this.ServerInstallerExists = fs.existsSync(this.ServerInstaller);
+
+    this.ServerFile = path.join(serverDir, serverFileName);
+    this.ServerFileExists = fs.existsSync(this.ServerFile);
+
+    this.ServerIsRunning = false;
+    this.StateListeners = [];
+
     this.initClient();
+    this.refreshState();
+    this.listenServerRunningByClient();
   }
 
-  async Init() {
-    if (this.inited) return;
-    if (!(await this.isRunning())) {
-      await this.install();
+  async Download(downloadFunc) {
+    if (!downloadFunc || typeof downloadFunc !== "function") {
+      throw new Error("download function is empty");
     }
-    this.inited = true;
+    await downloadFunc(this.ServerInstaller);
   }
   async Install() {
-    await this.install();
+    await this.installServer();
   }
   async Uninstall() {
-    await this.uninstall();
+    await this.uninstallServer();
+  }
+  async ListenState(callback) {
+    if (!callback || typeof callback !== "function") return;
+    this.StateListeners.push(callback);
   }
   async Version() {
-    await this.checkInited();
+    await this.check();
     const data = await this.client.request({
       method: "GET",
       url: "/version",
     });
     return data.data;
   }
-  async IsLatestVersion(latest) {
-    await this.checkInited();
-    const data = await this.client.request({
-      method: "GET",
-      url: "/version",
-    });
-    const current = data.data;
-    return !isNewerVersion(current, latest);
-  }
   async Option() {
-    await this.checkInited();
+    await this.check();
     const data = await this.client.request({
       method: "GET",
       url: "/option",
     });
     return data.data;
   }
+  async SetOption(opt) {
+    await this.check();
+    await this.client.request({
+      method: "POST",
+      url: "/option",
+      data: opt,
+    });
+  }
   async ParseURI(uri) {
-    await this.checkInited();
+    await this.check();
     const data = await this.client.request({
       method: "POST",
       url: "/parseuri",
@@ -102,7 +105,7 @@ class Manager {
     if (!timeout) {
       timeout = 2000;
     }
-    await this.checkInited();
+    await this.check();
     const data = await this.client.request({
       method: "POST",
       url: "/ping",
@@ -115,23 +118,15 @@ class Manager {
     return data.data;
   }
   async Status() {
-    await this.checkInited();
+    await this.check();
     const data = await this.client.request({
       method: "GET",
       url: "/status",
     });
     return data.data;
   }
-  async SetOption(opt) {
-    await this.checkInited();
-    await this.client.request({
-      method: "POST",
-      url: "/option",
-      data: opt,
-    });
-  }
   async Enable(param) {
-    await this.checkInited();
+    await this.check();
     await this.client.request({
       method: "POST",
       url: "/enable",
@@ -139,7 +134,7 @@ class Manager {
     });
   }
   async Disable() {
-    await this.checkInited();
+    await this.check();
     await this.client.request({
       method: "POST",
       url: "/disable",
@@ -156,98 +151,168 @@ class Manager {
     }
   }
 
+  async notifyState() {
+    this.StateListeners.forEach((cb) => {
+      cb?.({
+        serverInstallerExists: this.ServerInstallerExists,
+        serverFileExists: this.ServerFileExists,
+        serverIsRunning: this.ServerIsRunning,
+      });
+    });
+  }
+  async refreshState() {
+    while (true) {
+      const serverInstallerExists = fs.existsSync(this.ServerInstaller);
+      const serverFileExists = fs.existsSync(this.ServerFile);
+      const serverIsRunning = await this.getServerIsRunningByServer();
+      let notify = false;
+      if (this.ServerInstallerExists !== serverInstallerExists) {
+        this.ServerInstallerExists = serverInstallerExists;
+        notify = true;
+      }
+      if (this.ServerFileExists !== serverFileExists) {
+        this.ServerFileExists = serverFileExists;
+        notify = true;
+      }
+      if (this.ServerIsRunning !== serverIsRunning) {
+        this.ServerIsRunning = serverIsRunning;
+        notify = true;
+      }
+      await sleep(200);
+      if (notify) {
+        this.notifyState();
+      }
+    }
+  }
   initClient() {
     switch (process.platform) {
       case "win32":
         this.client = axios.create({
           baseURL: "http://pipe/",
-          socketPath: `\\\\.\\pipe\\${this.serviceName}`,
+          socketPath: `\\\\.\\pipe\\${this.ServerName}`,
           timeout: 30000,
         });
         break;
       case "darwin":
         this.client = axios.create({
           baseURL: "http://unix/",
-          socketPath: `/tmp/${this.serviceName}.sock`,
+          socketPath: `/tmp/${this.ServerName}.sock`,
           timeout: 30000,
         });
         break;
       case "linux":
         this.client = axios.create({
           baseURL: "http://unix/",
-          socketPath: `/tmp/${this.serviceName}.sock`,
+          socketPath: `/tmp/${this.ServerName}.sock`,
           timeout: 30000,
         });
         break;
     }
   }
-  async checkInited() {
-    if (!this.inited) {
-      throw new Error("uninit");
+  async check() {
+    if (!this.ServerIsRunning) {
+      throw new Error("server_not_run");
     }
   }
-  async isRunning() {
+  async getServerIsRunningByServer() {
+    try {
+      switch (process.platform) {
+        case "win32":
+          return await this.getServerIsRunningByServerWindows();
+        case "darwin":
+          return await this.getServerIsRunningByServerDarwin();
+        case "linux":
+          return await this.getServerIsRunningByServerLinux();
+        default:
+          throw new Error(`${process.platform} not support`);
+      }
+    } catch (err) {
+      console.warn(
+        "[space-envoy] get server is running by server failed:",
+        err
+      );
+    }
+    return false;
+  }
+  async listenServerRunningByClient() {
+    while (true) {
+      if (this.client) {
+        try {
+          await this.client.request({
+            method: "GET",
+            url: "",
+          });
+          this.ServerIsRunning = true;
+        } catch (err) {
+          this.ServerIsRunning = false;
+        }
+      }
+      await sleep(1000);
+    }
+  }
+  async beforeInstallServer() {
+    if (!this.ServerFileExists && !this.ServerInstallerExists) {
+      throw new Error("server_not_found");
+    }
+    if (!this.ServerFileExists) {
+      const installer = new AdmZip(this.ServerInstaller);
+      installer.extractAllTo(this.ServerDir, true);
+    }
+  }
+  async installServer() {
+    await this.beforeInstallServer();
     switch (process.platform) {
       case "win32":
-        return await this.isRunningWindows();
+        await this.installServerWindows();
+        break;
       case "darwin":
-        return await this.isRunningDarwin();
+        await this.installServerDarwin();
+        break;
       case "linux":
-        return await this.isRunningLinux();
+        await this.installServerLinux();
+        break;
     }
   }
-  async install() {
+  async uninstallServer() {
     switch (process.platform) {
       case "win32":
-        await this.installWindows();
+        await this.uninstallServerWindows();
         break;
       case "darwin":
-        await this.installDarwin();
+        await this.uninstallServerDarwin();
         break;
       case "linux":
-        await this.installLinux();
+        await this.uninstallServerLinux();
         break;
     }
   }
-  async uninstall() {
-    switch (process.platform) {
-      case "win32":
-        await this.uninstallWindows();
-        break;
-      case "darwin":
-        await this.uninstallDarwin();
-        break;
-      case "linux":
-        await this.uninstallLinux();
-        break;
-    }
-  }
-  async installAfterCheck() {
+  async installServerAfterCheck() {
     let ok = false;
     for (let i = 0; i < 60; i++) {
       await new Promise((r) => setTimeout(r, 500));
-      if (await this.isRunning()) {
+      if (await this.getServerIsRunningByServer()) {
         ok = true;
         break;
       }
     }
     if (!ok) {
-      throw new Error("socket failed");
+      throw new Error("server_not_run");
     }
   }
-  async isRunningWindows() {
+  async getServerIsRunningByServerWindows() {
     try {
-      const output = execSync(`sc query ${this.serviceName}`, {
+      const output = execSync(`sc query ${this.ServerName}`, {
         encoding: "utf8",
+        stdio: ["pipe", "pipe", "ignore"],
       });
       return output.toLowerCase().includes("running");
     } catch {
       return false;
     }
   }
-  async installWindows() {
-    console.log("installing");
-    const quotedPath = `"${this.serviceFile}"`;
+  async installServerWindows() {
+    console.log("[space-envoy] installing");
+    const quotedPath = `"${this.ServerFile}"`;
     const shells = [
       `${quotedPath} install`,
       // `${quotedPath} start`,
@@ -262,11 +327,11 @@ class Manager {
         );
       }
     }
-    await this.installAfterCheck();
+    await this.installServerAfterCheck();
   }
-  async uninstallWindows() {
-    console.log("uninstalling");
-    const quotedPath = `"${this.serviceFile}"`;
+  async uninstallServerWindows() {
+    console.log("[space-envoy] uninstalling");
+    const quotedPath = `"${this.ServerFile}"`;
     const shells = [
       // `${quotedPath} stop`,
       `${quotedPath} uninstall`,
@@ -284,14 +349,15 @@ class Manager {
   }
   async logWindows() {
     return execSync(
-      `powershell -Command Get-EventLog -LogName Application -Source ${this.serviceName} -Newest 1000`,
+      `powershell -Command Get-EventLog -LogName Application -Source ${this.ServerName} -Newest 1000`,
       { encoding: "utf8" }
     );
   }
-  async isRunningDarwin() {
+  async getServerIsRunningByServerDarwin() {
     try {
-      const output = execSync(`launchctl print system/${this.serviceName}`, {
+      const output = execSync(`launchctl print system/${this.ServerName}`, {
         encoding: "utf8",
+        stdio: ["pipe", "pipe", "ignore"],
       });
       const match = output.match(/pid = (\d+)/);
       return match && match[1] !== "0";
@@ -299,9 +365,9 @@ class Manager {
       return false;
     }
   }
-  async installDarwin() {
-    console.log("installing");
-    const quotedPath = `"${this.serviceFile}"`;
+  async installServerDarwin() {
+    console.log("[space-envoy] installing");
+    const quotedPath = `"${this.ServerFile}"`;
     const shells = [
       `chmod +x ${quotedPath}`,
       `${quotedPath} install`,
@@ -311,7 +377,7 @@ class Manager {
       /"/g,
       '\\"'
     )}" with prompt "Kernel ${
-      this.serviceName
+      this.ServerName
     } requires authorization to use" with administrator privileges`;
     try {
       execSync(`osascript -e '${script}'`, { encoding: "utf8" });
@@ -320,17 +386,17 @@ class Manager {
         `failed to install: ${err?.message}\n${err?.stdout || ""}`
       );
     }
-    await this.installAfterCheck();
+    await this.installServerAfterCheck();
   }
-  async uninstallDarwin() {
-    console.log("uninstalling");
-    const quotedPath = `"${this.serviceFile}"`;
+  async uninstallServerDarwin() {
+    console.log("[space-envoy] uninstalling");
+    const quotedPath = `"${this.ServerFile}"`;
     const shells = [`${quotedPath} uninstall`].join("\n");
     const script = `do shell script "${shells.replace(
       /"/g,
       '\\"'
     )}" with prompt "Kernel ${
-      this.serviceName
+      this.ServerName
     } requires authorization to use" with administrator privileges`;
     try {
       execSync(`osascript -e '${script}'`, { encoding: "utf8" });
@@ -342,22 +408,23 @@ class Manager {
   }
   async logDarwin() {
     return fs
-      .readFileSync(`/var/log/${this.serviceName}.out.log`)
+      .readFileSync(`/var/log/${this.ServerName}.out.log`)
       .toString("utf-8");
   }
-  async isRunningLinux() {
+  async getServerIsRunningByServerLinux() {
     try {
-      const output = execSync(`systemctl is-active ${this.serviceName}`, {
+      const output = execSync(`systemctl is-active ${this.ServerName}`, {
         encoding: "utf8",
+        stdio: ["pipe", "pipe", "ignore"],
       }).trim();
       return output === "active";
     } catch {
       return false;
     }
   }
-  async installLinux() {
-    console.log("installing");
-    const quotedPath = `"${this.serviceFile}"`;
+  async installServerLinux() {
+    console.log("[space-envoy] installing");
+    const quotedPath = `"${this.ServerFile}"`;
     const shells = [
       `chmod +x ${quotedPath}`,
       `${quotedPath} install`,
@@ -372,11 +439,11 @@ class Manager {
         );
       }
     }
-    await this.installAfterCheck();
+    await this.installServerAfterCheck();
   }
-  async uninstallLinux() {
-    console.log("uninstalling");
-    const quotedPath = `"${this.serviceFile}"`;
+  async uninstallServerLinux() {
+    console.log("[space-envoy] uninstalling");
+    const quotedPath = `"${this.ServerFile}"`;
     const shells = [`${quotedPath} uninstall`].join("\n");
     for (const shell of shells) {
       try {
@@ -389,18 +456,18 @@ class Manager {
     }
   }
   async logLinux() {
-    return execSync(`journalctl -u ${this.serviceName} -n 1000`, {
+    return execSync(`journalctl -u ${this.ServerName} -n 1000`, {
       encoding: "utf8",
     });
   }
 
-  mockInited() {
-    this.inited = true;
+  mockServerIsRunning() {
+    this.ServerIsRunning = true;
   }
 }
 
 module.exports = {
-  Manager,
+  Service,
   ModeGlobal,
   ModeAbroad,
   ModeReturning,

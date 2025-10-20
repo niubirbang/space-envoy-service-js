@@ -1,9 +1,9 @@
 const { Manager, ModeGlobal, ModeAbroad, ModeReturning, UseFixed, UseAuto } = require("../index");
-const { serviceName, serviceFile, mockInited } = require("./var");
+const { serviceName, serviceFile, mockServerIsRunning } = require("./var");
 
 const m = new Manager(serviceName, serviceFile);
-if (mockInited) {
-  m.mockInited();
+if (mockServerIsRunning) {
+  m.mockServerIsRunning();
 }
 
 // const mode = ModeGlobal;

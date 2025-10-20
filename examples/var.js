@@ -1,7 +1,7 @@
 let serviceName = "";
 let serviceFile = "";
 
-const mockInited = false;
+const mockServerIsRunning = false;
 
 switch (process.platform) {
   case "win32":
@@ -21,5 +21,5 @@ switch (process.platform) {
 module.exports = {
   serviceName,
   serviceFile,
-  mockInited,
+  mockServerIsRunning,
 };
