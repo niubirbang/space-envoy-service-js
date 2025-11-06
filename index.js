@@ -46,7 +46,7 @@ class Service {
     this.StateListeners = [];
 
     this.initClient();
-    this.refreshState();
+    this.intervalRefreshState();
     this.listenServerRunningByClient();
   }
 
@@ -152,36 +152,39 @@ class Service {
   }
 
   async notifyState() {
-    this.StateListeners.forEach((cb) => {
-      cb?.({
+    for (let cb of this.StateListeners) {
+      await cb?.({
         serverInstallerExists: this.ServerInstallerExists,
         serverFileExists: this.ServerFileExists,
         serverIsRunning: this.ServerIsRunning,
       });
-    });
+    }
   }
   async refreshState() {
+    const serverInstallerExists = fs.existsSync(this.ServerInstaller);
+    const serverFileExists = fs.existsSync(this.ServerFile);
+    const serverIsRunning = await this.getServerIsRunningByServer();
+    let notify = false;
+    if (this.ServerInstallerExists !== serverInstallerExists) {
+      this.ServerInstallerExists = serverInstallerExists;
+      notify = true;
+    }
+    if (this.ServerFileExists !== serverFileExists) {
+      this.ServerFileExists = serverFileExists;
+      notify = true;
+    }
+    if (this.ServerIsRunning !== serverIsRunning) {
+      this.ServerIsRunning = serverIsRunning;
+      notify = true;
+    }
+    if (notify) {
+      await this.notifyState();
+    }
+  }
+  async intervalRefreshState() {
     while (true) {
-      const serverInstallerExists = fs.existsSync(this.ServerInstaller);
-      const serverFileExists = fs.existsSync(this.ServerFile);
-      const serverIsRunning = await this.getServerIsRunningByServer();
-      let notify = false;
-      if (this.ServerInstallerExists !== serverInstallerExists) {
-        this.ServerInstallerExists = serverInstallerExists;
-        notify = true;
-      }
-      if (this.ServerFileExists !== serverFileExists) {
-        this.ServerFileExists = serverFileExists;
-        notify = true;
-      }
-      if (this.ServerIsRunning !== serverIsRunning) {
-        this.ServerIsRunning = serverIsRunning;
-        notify = true;
-      }
+      await this.refreshState()
       await sleep(200);
-      if (notify) {
-        this.notifyState();
-      }
     }
   }
   initClient() {
@@ -297,6 +300,8 @@ class Service {
     }
     if (!ok) {
       throw new Error("server_not_run");
+    } else {
+      await this.refreshState()
     }
   }
   async getServerIsRunningByServerWindows() {
