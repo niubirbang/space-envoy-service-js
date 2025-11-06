@@ -183,7 +183,7 @@ class Service {
   }
   async intervalRefreshState() {
     while (true) {
-      await this.refreshState()
+      await this.refreshState();
       await sleep(200);
     }
   }
@@ -301,7 +301,7 @@ class Service {
     if (!ok) {
       throw new Error("server_not_run");
     } else {
-      await this.refreshState()
+      await this.refreshState();
     }
   }
   async getServerIsRunningByServerWindows() {
