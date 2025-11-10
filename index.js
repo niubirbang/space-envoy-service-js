@@ -47,7 +47,7 @@ class Service {
 
     this.initClient();
     this.intervalRefreshState();
-    this.listenServerRunningByClient();
+    this.listenServerIsRunningByClient();
   }
 
   async Download(downloadFunc) {
@@ -217,6 +217,20 @@ class Service {
       throw new Error("server_not_run");
     }
   }
+  async getServerIsRunningByClient() {
+    if (!this.client) {
+      return false;
+    }
+    try {
+      await this.client.request({
+        method: "GET",
+        url: "",
+      });
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
   async getServerIsRunningByServer() {
     try {
       switch (process.platform) {
@@ -237,19 +251,9 @@ class Service {
     }
     return false;
   }
-  async listenServerRunningByClient() {
+  async listenServerIsRunningByClient() {
     while (true) {
-      if (this.client) {
-        try {
-          await this.client.request({
-            method: "GET",
-            url: "",
-          });
-          this.ServerIsRunning = true;
-        } catch (err) {
-          this.ServerIsRunning = false;
-        }
-      }
+      this.ServerIsRunning = await this.getServerIsRunningByClient();
       await sleep(1000);
     }
   }
@@ -293,7 +297,9 @@ class Service {
     let ok = false;
     for (let i = 0; i < 60; i++) {
       await new Promise((r) => setTimeout(r, 500));
-      if (await this.getServerIsRunningByServer()) {
+      const isRunningByServer = await this.getServerIsRunningByServer();
+      const isRunningByClient = await this.getServerIsRunningByClient();
+      if (isRunningByServer && isRunningByClient) {
         ok = true;
         break;
       }
