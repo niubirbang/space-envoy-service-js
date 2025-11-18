@@ -1,3 +1,4 @@
+const os = require("os");
 const path = require("path");
 const fs = require("fs");
 const axios = require("axios");
@@ -323,40 +324,76 @@ class Service {
   }
   async installServerWindows() {
     console.log("[space-envoy] installing");
-    const quotedPath = `"${this.ServerFile}"`;
-    const shells = [
-      `${quotedPath} install`,
-      // `${quotedPath} start`,
-    ];
-    for (const shell of shells) {
-      const script = `Start-Process "cmd.exe" -ArgumentList '/c ${shell}' -Verb RunAs -WindowStyle Hidden`;
-      try {
-        execSync(`powershell -Command ${script}`, { encoding: "utf8" });
-      } catch (err) {
-        throw new Error(
-          `failed to install: ${err?.message}\n${err?.stdout || ""}`
-        );
-      }
+
+    const ps1 = path.join(os.tmpdir(), "space_service_install.ps1");
+    fs.writeFileSync(
+      ps1,
+      `Start-Process -FilePath "${this.ServerFile}" -ArgumentList "install" -Verb RunAs -Wait -WindowStyle Hidden`
+    );
+    try {
+      execSync(`powershell -ExecutionPolicy Bypass -File "${ps1}"`, {
+        encoding: "utf8",
+      });
+    } catch (err) {
+      throw new Error(
+        `failed to install: ${err?.message}\n${err?.stdout || ""}`
+      );
     }
+
+    // const quotedPath = `"${this.ServerFile}"`;
+    // const shells = [
+    //   `${quotedPath} install`,
+    //   // `${quotedPath} start`,
+    // ];
+    // for (const shell of shells) {
+    //   const script = `Start-Process "cmd.exe" -ArgumentList '/c ${shell}' -Verb RunAs -WindowStyle Hidden`;
+    //   try {
+    //     execSync(`powershell -Command ${script}`, { encoding: "utf8" });
+    //   } catch (err) {
+    //     throw new Error(
+    //       `failed to install: ${err?.message}\n${err?.stdout || ""}`
+    //     );
+    //   }
+    // }
+
     await this.installServerAfterCheck();
   }
   async uninstallServerWindows() {
     console.log("[space-envoy] uninstalling");
-    const quotedPath = `"${this.ServerFile}"`;
-    const shells = [
-      // `${quotedPath} stop`,
-      `${quotedPath} uninstall`,
-    ];
-    for (const shell of shells) {
-      const script = `Start-Process "cmd.exe" -ArgumentList '/c ${shell}' -Verb RunAs -WindowStyle Hidden`;
-      try {
-        execSync(`powershell -Command ${script}`, { encoding: "utf8" });
-      } catch (err) {
-        throw new Error(
-          `failed to install: ${err?.message}\n${err?.stdout || ""}`
-        );
-      }
+
+    const ps1 = path.join(os.tmpdir(), "space_service_uninstall.ps1");
+    fs.writeFileSync(
+      ps1,
+      `Start-Process -FilePath "${this.ServerFile}" -ArgumentList "uninstall" -Verb RunAs -Wait -WindowStyle Hidden`
+    );
+    try {
+      execSync(`powershell -ExecutionPolicy Bypass -File "${ps1}"`, {
+        encoding: "utf8",
+      });
+    } catch (err) {
+      throw new Error(
+        `failed to uninstall: ${err?.message}\n${err?.stdout || ""}`
+      );
     }
+
+    // const ps1Shells = [
+    //   {filePath: installPs1}
+    // ]
+    // const quotedPath = `"${this.ServerFile}"`;
+    // const shells = [
+    //   // `${quotedPath} stop`,
+    //   `${quotedPath} uninstall`,
+    // ];
+    // for (const shell of shells) {
+    //   const script = `Start-Process "cmd.exe" -ArgumentList '/c ${shell}' -Verb RunAs -WindowStyle Hidden`;
+    //   try {
+    //     execSync(`powershell -Command ${script}`, { encoding: "utf8" });
+    //   } catch (err) {
+    //     throw new Error(
+    //       `failed to install: ${err?.message}\n${err?.stdout || ""}`
+    //     );
+    //   }
+    // }
   }
   async logWindows() {
     return execSync(
