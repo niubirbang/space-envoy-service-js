@@ -445,7 +445,7 @@ class Service {
       '\\"'
     )}" with prompt "Kernel ${
       this.ServerName
-    } requires authorization to use" with administrator privileges`;
+    } requires authorization to uninstall" with administrator privileges`;
     try {
       execSync(`osascript -e '${script}'`, { encoding: "utf8" });
     } catch (err) {
