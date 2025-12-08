@@ -178,7 +178,7 @@ class Manager {
   /**
    * 解压安装器
    */
-  Unzip() {
+  async Unzip() {
     if (!this.serverFileExists && !this.serverInstallerExists) {
       throw new Error("server_not_found");
     }
