@@ -152,6 +152,30 @@ class Manager {
     return false;
   }
   /**
+   * 获取安装器是否存在
+   * @return {bool}
+   * 安装器是否存在
+   */
+  GetServerInstallerExists() {
+    return this.serverInstallerExists;
+  }
+  /**
+   * 获取执行文件是否存在
+   * @return {bool}
+   * 执行文件是否存在
+   */
+  GetServerFileExists() {
+    return this.serverFileExists;
+  }
+  /**
+   * 获取服务是否运行
+   * @return {bool}
+   * 服务是否运行
+   */
+  GetServerIsRunning() {
+    return this.serverIsRunning;
+  }
+  /**
    * 下载服务
    * @param {DownloadFunc} fn 下载函数
    */
