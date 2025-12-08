@@ -176,6 +176,18 @@ class Manager {
     return this.serverIsRunning;
   }
   /**
+   * 解压安装器
+   */
+  Unzip() {
+    if (!this.serverFileExists && !this.serverInstallerExists) {
+      throw new Error("server_not_found");
+    }
+    if (!this.serverFileExists) {
+      const installer = new AdmZip(this.serverInstaller);
+      installer.extractAllTo(this.serverDir, true);
+    }
+  }
+  /**
    * 下载服务
    * @param {DownloadFunc} fn 下载函数
    */
@@ -452,17 +464,7 @@ class Manager {
       throw new Error("server_not_run");
     }
   }
-  async beforeInstallServer() {
-    if (!this.serverFileExists && !this.serverInstallerExists) {
-      throw new Error("server_not_found");
-    }
-    if (!this.serverFileExists) {
-      const installer = new AdmZip(this.serverInstaller);
-      installer.extractAllTo(this.serverDir, true);
-    }
-  }
   async install() {
-    await this.beforeInstallServer();
     switch (process.platform) {
       case "win32":
         await this.installWindows();
