@@ -7,7 +7,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "adm-zip": "^0.5.16",
+    "@types/adm-zip": "^0.5.7",
     "axios": "^1.12.2"
   },
   "devDependencies": {
