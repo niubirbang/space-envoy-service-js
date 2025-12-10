@@ -60,7 +60,7 @@ export interface Param {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-class Manager {
+export class Manager {
   platform: string = process.platform;
   serverInstaller: string;
   serverInstallerExists: boolean;
@@ -527,11 +527,3 @@ class Manager {
     }
   }
 }
-
-module.exports = {
-  Status,
-  Mode,
-  Use,
-  LogLevel,
-  Manager,
-};
